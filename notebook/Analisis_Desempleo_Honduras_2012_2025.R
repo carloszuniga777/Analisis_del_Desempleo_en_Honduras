@@ -1,8 +1,10 @@
-#install.packages("readxl")
+#install.packages("readxl")    # Para leer archivos excel
+#install.packages("ggrepel")
 
-library(readxl)
-library(tidyverse)
 
+library(readxl)           # Para leer archivos excel
+library(tidyverse)        # Para manipular los datos y graficar
+library(ggrepel)          # Para etiquetas que no se traslapan  
 #--------------------------------------
 # 1. Carga inicial 
 
@@ -483,8 +485,7 @@ summarise(
   # 2. Calculamos las tasas:  Tasa de empleo, actividad, ocupación e inactividad
   mutate( tasa_desempleo = round((Desocupados / PEA) * 100, 2), 
           tasa_actividad = round((PEA / PET) * 100, 2), 
-          tasa_ocupacion = round((Ocupados / PET) * 100, 2),
-          tasa_inactividad = round((Inactivos/PET) * 100, 2)
+          tasa_ocupacion = round((Ocupados / PET) * 100, 2)
   )
 
 
@@ -495,8 +496,7 @@ summarise(
 empleo_genero<- empleo_genero %>% 
   mutate( tasa_desempleo = round((Desocupados / `Población Económicamente Activa (PEA)`) * 100, 2), 
           tasa_actividad = round(( `Población Económicamente Activa (PEA)`/ `Población en Edad de Trabajar (PET)`) * 100, 2), 
-          tasa_ocupacion = round((Ocupados / `Población en Edad de Trabajar (PET)`) * 100, 2),
-          tasa_inactividad = round((Inactivos/`Población en Edad de Trabajar (PET)`) * 100, 2)
+          tasa_ocupacion = round((Ocupados / `Población en Edad de Trabajar (PET)`) * 100, 2)
   )
 
 #---------------------------------------------
@@ -504,375 +504,191 @@ empleo_genero<- empleo_genero %>%
 #---------------------------------------------
 
 
-# 4.1. Grafico de Lineas de Empleo por edad
 
+# 4.1 BRECHA DE EDAD
 
-# 4.1.1 Tasa de desempleo (Empleo por edad)
-
-# Definir una paleta de colores profesional
-colores_edad_td <- c(
-  "Jóvenes (15-29 años)"                 = "#E41A1C", # Rojo (Alerta)
-  "Adultos Joven (30-44 años)"           = "#377EB8", # Azul
-  "Adultos Mayores  (45-59 años)"        = "#4DAF4A", # Verde (Doble espacio incluido)
-  "Adultos en Edad de Retiro (+60 años)" = "#984EA3", # Púrpura
-  "Menores de 15 años"                   = "#FF7F00"  # Naranja
-)
-
-
-ggplot(empleo_edad_resumen, aes(x= Año, y = tasa_desempleo, colour = `Grupos_edad`)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
-  labs(
-       title = "Tasa de Desempleo en Honduras por grupos de edad",
-       subtitle = "Honduras: Periodo 2012 - 2025",
-       caption = "Fuente: Instituto Nacional de Estadística (INE)",
-       y = "Tasa de Desempleo (%)",
-       x = "Año de la Encuesta",
-       color = "Grupos de Edad"
-      ) +
-  
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_edad_td) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
-  
-  # Tema profesional de BI
-  theme_minimal(base_size = 14) +
-  theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
-    
-    # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
-    axis.text.y = element_text(size = 10, color = "black"),
-    
-    # --- CONFIGURACIÓN DE LA LEYENDA ---
-    legend.position = "top",                                                         # Coloca la leyenda arriba
-    legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 9),
-    legend.background = element_rect(fill = "white", color = "lightgrey"),
-    
-    # Limpieza visual
-    panel.grid.minor = element_blank()
+# 4.1.1. PREPARACIÓN: Aseguramos que los datos estén ordenados por año
+# Esto es vital para que las líneas de trayectoria sigan el orden cronológico
+empleo_edad_pivot <- empleo_edad_resumen %>%
+  select(Año, Grupos_edad, tasa_actividad, tasa_desempleo) %>%
+  pivot_longer(
+    cols = c(tasa_actividad, tasa_desempleo), 
+    names_to = "Indicador", 
+    values_to = "Valor"
   )
-  
 
 
-
-# 4.1.2 Tasa de Actividad (Empleo por edad)
-
-colores_edad_ta <- c(
-  "Jóvenes (15-29 años)"                 = "#542788", # Púrpura Oscuro
-  "Adultos Joven (30-44 años)"           = "#2B83BA", # Azul Acero (Estabilidad)
-  "Adultos Mayores  (45-59 años)"        = "#4D9221", # Verde Bosque
-  "Adultos en Edad de Retiro (+60 años)" = "#D7191C", # Rojo Intenso (Foco de atención)
-  "Menores de 15 años"                   = "#FDAE61"  # Naranja Suave
+# 4.1.2. DEFINICIÓN DE COLORES 
+colores_kpi <- c(
+  "tasa_actividad" = "#2E7D32", # Verde bosque
+  "tasa_desempleo" = "#C62828"  # Rojo intenso
 )
 
 
-ggplot(empleo_edad_resumen, aes(x=Año, y=tasa_actividad, colour = Grupos_edad)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
+
+# 3. CONSTRUCCIÓN DEL GRÁFICO
+ggplot(empleo_edad_pivot, aes(x = Año, y = Valor, color = Indicador)) +
+  
+  # Líneas de tendencia y puntos de medición
+  geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  
+  # FACETAS: Creamos un mini-gráfico para cada grupo de edad
+  # scales = "free_y" permitiría que cada uno tenga su escala, 
+  # pero para BI Senior es mejor mantener la misma escala para comparar magnitudes reales.
+  facet_wrap(~Grupos_edad, ncol = 2) + 
+  
+  # ETIQUETAS DE DATOS: Solo en años clave para no ensuciar el gráfico
+  geom_text(data = empleo_edad_pivot %>% filter(Año %in% c(2012, 2020, 2025)),
+            aes(label = paste0(round(Valor, 1), "%")),
+            vjust = -1, size = 3, fontface = "bold", show.legend = FALSE) +
+  
+  # TÍTULOS Y TEXTOS
   labs(
-    title = "Tasa de actividad en Honduras por grupos de edad",
-    subtitle = "Honduras: Periodo 2012 - 2025",
-    caption = "Fuente: Instituto Nacional de Estadística (INE)",
-    y = "Tasa de Actividad (%)",
+    title = "ANÁLISIS ESTRUCTURAL DEL MERCADO LABORAL POR EDAD",
+    subtitle = "Honduras 2012-2025: Comparativa entre Participación Activa y Desempleo Abierto",
     x = "Año de la Encuesta",
-    color = "Grupos de Edad"
+    y = "Tasa Porcentual (%)",
+    color = "Indicador",
+    caption = "Fuente: INE Honduras | La brecha entre líneas representa la población ocupada dentro de la PEA."
   ) +
   
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_edad_ta) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
+  # CONFIGURACIÓN DE ESCALAS
+  scale_color_manual(
+    values = colores_kpi,
+    labels = c("tasa_actividad" = "Tasa de Actividad (PEA)", "tasa_desempleo" = "Tasa de Desempleo")
+  ) +
+  scale_y_continuous(limits = c(0, 100), labels = function(x) paste0(x, "%")) +
+  scale_x_continuous(breaks = c(2012, 2016, 2020, 2025)) +
   
-  # Tema profesional de BI
+  # TEMA PROFESIONAL DE ALTA LECTURA
   theme_minimal(base_size = 14) +
   theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
-    
-    # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
-    axis.text.y = element_text(size = 10, color = "black"),
-    
-    # --- CONFIGURACIÓN DE LA LEYENDA ---
-    legend.position = "top",                                                         # Coloca la leyenda arriba
-    legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 9),
-    legend.background = element_rect(fill = "white", color = "lightgrey"),
-    
-    # Limpieza visual
+    strip.background = element_rect(fill = "#263238"), # Fondo oscuro para los títulos de cada panel
+    strip.text = element_text(color = "white", face = "bold"),
+    plot.title = element_text(face = "bold", size = 16, color = "#1A237E"),
+    panel.spacing = unit(1.5, "lines"), # Espacio entre paneles
+    legend.position = "top",
     panel.grid.minor = element_blank()
   )
 
 
 
-#4.1.3. Tasa de ocupación (Empleo por edad)
 
-colores_edad_to <- c(
-  "Jóvenes (15-29 años)"                 = "#542788", # Púrpura Oscuro
-  "Adultos Joven (30-44 años)"           = "#2B83BA", # Azul Acero (Estabilidad)
-  "Adultos Mayores  (45-59 años)"        = "#4D9221", # Verde Bosque
-  "Adultos en Edad de Retiro (+60 años)" = "#D7191C", # Rojo Intenso (Foco de atención)
-  "Menores de 15 años"                   = "#FDAE61"  # Naranja Suave
+
+
+
+
+#--------------------
+
+# 4.2 BRECHA DE GENERO Y DINAMICA LABORAL
+
+# Convirtiendo de formato ancho a largo
+empleo_genero_pivot <- empleo_genero %>%
+  select(Año, Genero, tasa_desempleo, tasa_actividad) %>%
+  pivot_longer(cols = c(tasa_desempleo, tasa_actividad), 
+               names_to = "Indicador", 
+               values_to = "Valor")
+
+# Colores 
+colores_genero <- c(
+  "tasa_actividad" = "#2E7D32", # Verde (Participación)
+  "tasa_desempleo" = "#C62828"  # Rojo (Desempleo)
 )
 
-ggplot(empleo_edad_resumen, aes(x=Año, y=tasa_ocupacion, colour = Grupos_edad)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
+
+
+ggplot(empleo_genero_pivot, aes(x = Año, y = Valor, color = Indicador, group = Indicador)) +
+
+  # 1. GEOMETRÍAS: Líneas y Puntos
+  geom_line(size = 1.3, alpha = 0.8) +                      # Dibuja las líneas de tendencia
+  geom_point(size = 2.5) +                                  # Marca los puntos exactos de medición
+
+  # 2.Separación de paneles
+  facet_wrap(~Genero, ncol = 2) + 
+
+  # 2. ETIQUETAS DE DATOS
+  
+  # 3. Etiquetas de datos inteligentes (Solo para el último año y picos para no saturar)
+  geom_text(data = empleo_genero_pivot %>% filter(Año %in% c(2012, 2020, 2025)),
+            aes(label = paste0(round(Valor, 1), "%")),
+            vjust = -1.2, size = 3.5, fontface = "bold", show.legend = FALSE) +
+  
+  
+  # geom_label(aes(label = paste0(round(tasa_desempleo, 1), "%")),  # Se redondea a un decimal para evitar etiquetas muy largas
+  #            vjust = -0.5,                                         # Desplaza el texto hacia arriba del punto
+  #            size = 3.2,                                           # Tamaño de la fuente del valor
+  #            fontface = "bold",                                    # Resalta el valor en negrita
+  #            color = "black",                                      # Texto en negro para contraste
+  # 
+  #            #Estilo del fondo de las etiquetas
+  #            fill = "#E5E7E9",                                     # Gris claro profesional
+  #            alpha = 0.7,                                          # Transparencia
+  #            label.size = 0,                                       # Quita el borde del recuadro
+  #            #
+  #            show.legend = FALSE) +                                # Evita que aparezca una 'a' en la leyenda
+  # 
+
+
+  # 3. TEXTOS Y TÍTULOS
+  
   labs(
-    title = "Tasa de Ocupación en Honduras por grupos de edad",
-    subtitle = "Honduras: Periodo 2012 - 2025",
-    caption = "Fuente: Instituto Nacional de Estadística (INE)",
-    y = "Tasa de Ocupación (%)",
-    x = "Año de la Encuesta",
-    color = "Grupos de Edad"
+    title = "BRECHA DE GÉNERO Y DINÁMICA LABORAL",
+    subtitle = "Comparativa de Tasa de Actividad vs. Desempleo por Género (2012-2025)",
+    caption = "Fuente: INE Honduras",
+    y = "Porcentaje (%)",
+    x = "Año",
+    color = "Métrica"
   ) +
   
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_edad_to) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
+
+  # 4. Escalas y etiquetas
   
-  # Tema profesional de BI
-  theme_minimal(base_size = 14) +
+  scale_color_manual(
+    values = colores_genero,
+    labels = c("tasa_actividad" = "Tasa de Actividad", "tasa_desempleo" = "Tasa de Desempleo")
+  ) +
+  
+  # Escala del eje x
+  scale_x_continuous(breaks = c(2012, 2015, 2018, 2020, 2022, 2025)) +      
+  
+  # Escala del eje y                                                                        
+  scale_y_continuous(limits = c(0, 105),                                    # Establece los limites de 0 a 100 + 5
+                     breaks = seq(0, 100, 20),                              # La secuencia de los datos del eje Y es de 20 en 20
+                     labels = function(x) paste0(x, "%")                    # Coloca signo % a cada dato del eje Y  
+                     ) +
+  
+  
+
+  # 5. Tema profesional de BI
+  theme_minimal(base_size = 15) +
   theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
     
+    # --------- Fondo de los títulos de panel --------------
+    strip.background = element_rect(fill = "#ECEFF1", color = NA), 
+    strip.text = element_text(face = "bold", color = "#263238", size = 14),
+    
+    # --------- Más espacio entre los dos gráficos ------
+    panel.spacing = unit(2, "lines"),                              
+    
+
+    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, color = "darkblue"),
+    plot.subtitle = element_text(size = 14, hjust = 0.5, margin = margin(b = 15)),
+    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
+
     # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
+    axis.title.x = element_text(face = "bold", size = 14, color = "darkgrey"),
+    axis.title.y = element_text(face = "bold", size = 14, color = "darkgrey"),
     axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
     axis.text.y = element_text(size = 10, color = "black"),
-    
+
     # --- CONFIGURACIÓN DE LA LEYENDA ---
     legend.position = "top",                                                         # Coloca la leyenda arriba
     legend.title = element_text(face = "bold", size = 9),
     legend.text = element_text(size = 9),
     legend.background = element_rect(fill = "white", color = "lightgrey"),
-  
-    # Limpieza visual
-    panel.grid.minor = element_blank()
-  )
 
-
-
-#4.1.4. Tasa de Inactividad (Empleo por edad)
-# Amas de casa, estudiantes, personas con discapacidad, jubilados, personas desmotivadas o excluidas del mercado laboral.
-
-colores_edad_ti <- c(
-  "Jóvenes (15-29 años)"                 = "#D7191C", # Rojo Intenso (Foco de atención)
-  "Adultos Joven (30-44 años)"           = "#2B83BA", # Azul Acero (Estabilidad)
-  "Adultos Mayores  (45-59 años)"        = "#4D9221", # Verde Bosque
-  "Adultos en Edad de Retiro (+60 años)" = "#FDAE61", # Púrpura Oscuro
-  "Menores de 15 años"                   =  "#542788" # Naranja Suave
-)
-
-ggplot(empleo_edad_resumen, aes(x=Año, y=tasa_inactividad, colour = Grupos_edad)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
-  labs(
-    title = "Tasa de Inactividad en Honduras por grupos de edad",
-    subtitle = "Honduras: Periodo 2012 - 2025",
-    caption = "Fuente: Instituto Nacional de Estadística (INE)",
-    y = "Tasa de Inactividad (%)",
-    x = "Año de la Encuesta",
-    color = "Grupos de Edad"
-  ) +
-  
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_edad_ti) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
-  
-  # Tema profesional de BI
-  theme_minimal(base_size = 14) +
-  theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
-    
-    # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
-    axis.text.y = element_text(size = 10, color = "black"),
-    
-    # --- CONFIGURACIÓN DE LA LEYENDA ---
-    legend.position = "top",                                                         # Coloca la leyenda arriba
-    legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 9),
-    legend.background = element_rect(fill = "white", color = "lightgrey"),
-    
-    # Limpieza visual
-    panel.grid.minor = element_blank()
-  )
-
-
-
-
-
-
-# 4.2. Grafico de Lineas de Empleo por Genero
-
-# 4.2.1 Tasa Desempleo (Empleo Genero)
-
-colores_genero_td <- c(
-  "Hombre"        = "green3",  # Verde
-  "Mujer"         = "#D7191C" # Rojo Intenso (Foco de atención)
-)
-
-ggplot(empleo_genero, aes(x=Año, y=tasa_desempleo, colour = Genero)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
-  labs(
-    title = "Tasa de Desempleo en Honduras por Género",
-    subtitle = "Honduras: Periodo 2012 - 2025",
-    caption = "Fuente: Instituto Nacional de Estadística (INE)",
-    y = "Tasa de Desempleo (%)",
-    x = "Año de la Encuesta",
-    color = "Género"
-  ) +
-  
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_genero_td) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
-  
-  # Tema profesional de BI
-  theme_minimal(base_size = 14) +
-  theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
-    
-    # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
-    axis.text.y = element_text(size = 10, color = "black"),
-    
-    # --- CONFIGURACIÓN DE LA LEYENDA ---
-    legend.position = "top",                                                         # Coloca la leyenda arriba
-    legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 9),
-    legend.background = element_rect(fill = "white", color = "lightgrey"),
-    
-    # Limpieza visual
-    panel.grid.minor = element_blank()
-  )
-
-
-
-# 4.2.2 Tasa Actividad (Empleo Genero)
-
-colores_genero_ta <- c(
-  "Hombre"        = "green3",  # Verde
-  "Mujer"         = "#D7191C" # Rojo Intenso (Foco de atención)
-)
-
-ggplot(empleo_genero, aes(x=Año, y=tasa_actividad, colour = Genero)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
-  labs(
-    title = "Tasa de Actividad en Honduras por Género",
-    subtitle = "Honduras: Periodo 2012 - 2025",
-    caption = "Fuente: Instituto Nacional de Estadística (INE)",
-    y = "Tasa de Actividad (%)",
-    x = "Año de la Encuesta",
-    color = "Género"
-  ) +
-  
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_genero_ta) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
-  
-  # Tema profesional de BI
-  theme_minimal(base_size = 14) +
-  theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
-    
-    # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
-    axis.text.y = element_text(size = 10, color = "black"),
-    
-    # --- CONFIGURACIÓN DE LA LEYENDA ---
-    legend.position = "top",                                                         # Coloca la leyenda arriba
-    legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 9),
-    legend.background = element_rect(fill = "white", color = "lightgrey"),
-    
-    # Limpieza visual
-    panel.grid.minor = element_blank()
-  )
-
-
-
-# 4.2.3 Tasa Ocupación (Empleo Genero)
-
-colores_genero_to <- c(
-  "Hombre"        = "green3",  # Verde
-  "Mujer"         = "#D7191C" # Rojo Intenso (Foco de atención)
-)
-
-ggplot(empleo_genero, aes(x=Año, y=tasa_ocupacion, colour = Genero)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
-  labs(
-    title = "Tasa de Ocupación en Honduras por Género",
-    subtitle = "Honduras: Periodo 2012 - 2025",
-    caption = "Fuente: Instituto Nacional de Estadística (INE)",
-    y = "Tasa de Ocupación (%)",
-    x = "Año de la Encuesta",
-    color = "Género"
-  ) +
-  
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_genero_to) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
-  
-  # Tema profesional de BI
-  theme_minimal(base_size = 14) +
-  theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
-    
-    # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
-    axis.text.y = element_text(size = 10, color = "black"),
-    
-    # --- CONFIGURACIÓN DE LA LEYENDA ---
-    legend.position = "top",                                                         # Coloca la leyenda arriba
-    legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 9),
-    legend.background = element_rect(fill = "white", color = "lightgrey"),
-    
     # Limpieza visual
     panel.grid.minor = element_blank()
   )
@@ -881,69 +697,16 @@ ggplot(empleo_genero, aes(x=Año, y=tasa_ocupacion, colour = Genero)) +
 
 
 
-
-# 4.2.3 Tasa Inactividad (Empleo Genero)
-# Amas de casa, estudiantes, personas con discapacidad, jubilados, personas desmotivadas o excluidas del mercado laboral.
-
-colores_genero_ti <- c(
-  "Hombre"        = "green3",  # Verde
-  "Mujer"         = "#D7191C" # Rojo Intenso (Foco de atención)
-)
-
-ggplot(empleo_genero, aes(x=Año, y=tasa_inactividad, colour = Genero)) +
-  geom_line(size = 1.2, alpha = 0.8) +                      # Líneas más gruesas para legibilidad
-  geom_point(size = 2) +                                    # Puntos para marcar cada año de medición
-  labs(
-    title = "Tasa de Inactividad en Honduras por Género",
-    subtitle = "Honduras: Periodo 2012 - 2025",
-    caption = "Fuente: Instituto Nacional de Estadística (INE)",
-    y = "Tasa de Inactividad (%)",
-    x = "Año de la Encuesta",
-    color = "Género"
-  ) +
-  
-  # Escalas y etiquetas
-  scale_color_manual(values = colores_genero_ti) +                      # Personaliza los colores de cada linea
-  scale_x_continuous(breaks = unique(empleo_edad_resumen$Año)) +   # Todos los años en el eje X
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +        # Añade el símbolo %
-  
-  # Tema profesional de BI
-  theme_minimal(base_size = 14) +
-  theme(
-    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
-    
-    # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
-    axis.text.y = element_text(size = 10, color = "black"),
-    
-    # --- CONFIGURACIÓN DE LA LEYENDA ---
-    legend.position = "top",                                                         # Coloca la leyenda arriba
-    legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 9),
-    legend.background = element_rect(fill = "white", color = "lightgrey"),
-    
-    # Limpieza visual
-    panel.grid.minor = element_blank()
-  )
+# 4.2. Metricas Empleo en Honduras 
 
 
+# 4.2.1 PET vs PET  
 
 
-# 4.2. Grafico de Barras de Empleo por edad
-
-# 4.2.1 Grafico comparativo entre a población apta para trabajar y de quienes son 
-#       económicamente activos en Honduras   
-
-
-# Primero se agrupan los datos por año y sumar as poblaciones y 
+# Primero se agrupan los datos por año y sumar las poblaciones y 
 # luego se pivotean los datos (Convertir de formato ancho a largo)
 
-empleo_edad_pivot <-  empleo_edad_resumen %>% 
+empleo_honduras_pet_vs_pea <-  empleo_edad_resumen %>% 
   group_by(Año) %>% 
   summarise(
     PET = sum(PET, na.rm = TRUE),
@@ -955,14 +718,14 @@ empleo_edad_pivot <-  empleo_edad_resumen %>%
 
 
 
-# Grafica comparativa entre PEA y PET
+# Grafica Barras comparativa entre PEA y PET
 
-ggplot(empleo_edad_pivot, aes(x = factor(Año), y = Valor, fill = Categoria)) +
+ggplot(empleo_honduras_pet_vs_pea, aes(x = factor(Año), y = Valor, fill = Categoria)) +
   
-  # Dibujar las barras
+  # 1. Dibujar las barras
   geom_col(position = position_dodge(width = 0.9)) +    # position_dodge(width = 0.9) separa las barras de PET y PEA una al lado de la otra.
   
-  # ETIQUETAS: Agrega las etiquetas de datos (números) dentro de las barras.
+  # 2. ETIQUETAS: Agrega las etiquetas de datos (números) dentro de las barras.
   geom_text(aes(label = scales::comma(Valor)), 
             position = position_dodge(width = 0.9),     # Alinea el texto con el centro de cada barra                       
             vjust = 0.5,                                # Centrado vertical respecto al punto de anclaje
@@ -972,21 +735,24 @@ ggplot(empleo_edad_pivot, aes(x = factor(Año), y = Valor, fill = Categoria)) +
             angle = 90,                                 # Rotación de 90 grados para lectura vertical
             fontface = "bold") +                        # Resalta el número en negrita
   
-  # Define colores personalizados y nombres exactos para la leyenda.
+  
+  # 3. Define colores personalizados y nombres exactos para la leyenda.
   scale_fill_manual(values = c("PET" = "#A9A9A9",                # Gris para PET
                                "PEA" = "#5DADE2"),               # Azul para PEA
                     labels = c("PET" = "Población en Edad de Trabajar (PET)", 
                                "PEA" = "Población Económicamente Activa (PEA)")) +
   
   
+  # 4. Escalas y etiquetas
   # Formatea el eje Y con comas y da un 10% de espacio extra arriba
   # para evitar que las barras o etiquetas toquen el borde del área de trazado.
   scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.1))) +
   
-  # Aplica un estilo limpio con fondo blanco y rejillas sutiles.
-  theme_minimal() +
+ 
   
+  # 5. TEXTOS Y TÍTULOS
   # Define el título (usando \n para salto de línea), etiquetas de ejes y quita el título de la leyenda.
+  
   labs(title = "Gráfico comparativo entre la población apta para trabajar\ny de quienes son económicamente activos en Honduras",
        subtitle = "Honduras: Periodo 2012 - 2025",
        caption = "Fuente: Instituto Nacional de Estadística (INE)",
@@ -995,21 +761,23 @@ ggplot(empleo_edad_pivot, aes(x = factor(Año), y = Valor, fill = Categoria)) +
        fill = "") +
   
   
-  #  FORMATO DEL TÍTULO Y SEPARACIÓN
+  
+  # 6. Tema profesional de BI
+  theme_minimal() +                                  # Aplica un estilo limpio con fondo blanco y rejillas sutiles
   theme(
     
     # -----------FORMATO A LOS TITULOS ---------------------
     # Centra el título (hjust = 0.5), lo pone en negrita y añade margen inferior (b = 20) 
     # para que no choque visualmente con las barras del gráfico.
     
-    plot.title = element_text(face = "bold", size = 12, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 10, hjust = 0.5, margin = margin(b = 15)),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, color = "darkblue"),
+    plot.subtitle = element_text(size = 14, hjust = 0.5, margin = margin(b = 15)),
     plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
     
     
     # --- ETIQUETAS DE LOS EJES (X e Y) ---
-    axis.title.x = element_text(face = "bold", size = 10, color = "darkgrey"),
-    axis.title.y = element_text(face = "bold", size = 10, color = "darkgrey"),
+    axis.title.x = element_text(face = "bold", size = 14, color = "darkgrey"),
+    axis.title.y = element_text(face = "bold", size = 14, color = "darkgrey"),
     
     # --- CONFIGURACIÓN DE LA LEYENDA ---
     legend.position = "bottom",                      # Posiciona la leyenda en la parte inferior para maximizar el área de visualización.
@@ -1018,5 +786,127 @@ ggplot(empleo_edad_pivot, aes(x = factor(Año), y = Valor, fill = Categoria)) +
     # -------- Limpieza visual ------------
     panel.grid.major.x = element_blank()             # Elimina las líneas verticales de la cuadrícula para un look más moderno y enfocado en las barras.
   )
+
+
+
+
+
+
+
+# 4.2.2. Dinámica laboral en Honduras
+
+
+# Primero se agrupan los datos y se suman las poblaciones, y se vuelve a calcular las tasas. Luego se hace pivot
+empleo_honduras <-  empleo_genero %>% 
+  group_by(Año) %>% 
+  summarise(
+    Ocupados = sum(Ocupados, na.rm = TRUE),
+    Desocupados = sum(Desocupados, na.rm = TRUE),
+    Inactivos = sum(Inactivos, na.rm = TRUE),
+    PET = sum(`Población en Edad de Trabajar (PET)`, na.rm = TRUE),
+    PEA = sum(`Población Económicamente Activa (PEA)`, na.rm = TRUE)
+  ) %>% 
+  mutate(
+    tasa_desempleo = round((Desocupados / PEA) * 100, 2), 
+    tasa_actividad = round(( PEA/ PET) * 100, 2), 
+    tasa_ocupacion = round((Ocupados / PET) * 100, 2)
+  ) %>% 
+  pivot_longer(
+    cols = c(tasa_desempleo, tasa_actividad, tasa_ocupacion),
+    names_to = "Categoria",
+    values_to = "Valor"
+  ) %>%
+  select(Año, Categoria, Valor)  
+
+
+
+
+
+
+colores_honduras <- c(
+  "tasa_actividad" = "#E6A100",  # Gris azulado (Contexto/Potencial)
+  "tasa_ocupacion" = "#00509D",  # Azul fuerte (Éxito/Empleo real)
+  "tasa_desempleo" = "#D32F2F"   # Rojo (Alerta/Punto de dolor)
+)
+
+
+# Grafico de lineas de la dinamica laboral en Honduras
+
+ggplot(empleo_honduras, aes(x=Año, y=Valor, colour = Categoria)) +
+  
+  # 1. GEOMETRÍAS: Líneas y Puntos
+  geom_line(size = 1.2, alpha = 0.8) +                      # Dibuja las líneas de tendencia
+  geom_point(size = 2) +                                    # Marca los puntos exactos de medición
+  
+  
+
+  
+  # 3. TEXTOS Y TÍTULOS
+  
+  labs(
+    title = "Dinámica laboral en Honduras",
+    subtitle = "Evolución de la Participación, Ocupación y Desempleo (2012 - 2025)",
+    caption = "Fuente: Instituto Nacional de Estadística (INE)",
+    y = "Tasas (%)",
+    x = "Año de la Encuesta",
+    color = "Indicador Laboral" # Título de la leyenda
+  ) +
+  
+  
+  
+  # 4. Escalas y etiquetas
+  
+  scale_color_manual(                                                                 # Se personalizan los colores de cada linea y los nombres de la leyenda
+    values = colores_honduras,
+    labels = c(
+      "tasa_actividad" = "Participación Activa",
+      "tasa_ocupacion" = "Población Ocupada",
+      "tasa_desempleo" = "Tasa de Desempleo"
+    )
+  ) +
+  
+  scale_x_continuous(breaks = unique(empleo_honduras$Año)) +                   # Todos los años en el eje X
+  
+  scale_y_continuous(labels = function(x) paste0(x, "%"),                     # Añade el símbolo %
+                     limits = c(0, 100),                                      # Limites de rango del eje Y
+                     breaks = seq(0, 100, by = 10)                            # Guías cada 10% para mejorar lectura
+  ) +  
+  
+  
+
+
+  
+  # 5. Tema profesional de BI
+  theme_minimal(base_size = 14) +
+  theme(
+    # --- CENTRAR Y DAR TAMAÑO A TÍTULOS ---
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, color = "darkblue"),
+    plot.subtitle = element_text(size = 14, hjust = 0.5, margin = margin(b = 15)),
+    plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
+    
+    # --- ETIQUETAS DE LOS EJES (X e Y) ---
+    axis.title.x = element_text(face = "bold", size = 14, color = "darkgrey"),
+    axis.title.y = element_text(face = "bold", size = 14, color = "darkgrey"),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),   # Inclinamos los años para que no choquen
+    axis.text.y = element_text(size = 10, color = "black"),
+    
+    # --- CONFIGURACIÓN DE LA LEYENDA ---
+    legend.position = "top",                                                         # Coloca la leyenda arriba
+    legend.title = element_text(face = "bold", size = 9),
+    legend.text = element_text(size = 9),
+    legend.background = element_rect(fill = "white", color = "lightgrey"),
+    
+    # Limpieza visual
+    panel.grid.minor = element_blank()
+  )
+
+
+
+
+
+
+
+
+
 
 
