@@ -360,10 +360,30 @@ ggplot() +
   
   
   # 2. ETIQUETAS DE BARRAS: (Números internos)
-  geom_text(data = empleo_honduras_pet_vs_pea, 
-            aes(x = factor(Año), y = Valor, label = scales::comma(Valor)),
-            position = position_dodge(width = 0.8),
-            angle = 90, hjust = 1.2, color = "white", size = 3, fontface = "bold") +
+  geom_text(
+    # 1. DATOS DE ORIGEN
+    data = empleo_honduras_pet_vs_pea,              # Usa el mismo dataset que las barras
+    
+    # 2. MAPEO DE ESTÉTICAS (LO MÁS IMPORTANTE)
+    aes(
+      x = factor(Año),                               # Posición horizontal: años como factores (categorías)
+      y = Valor,                                     # Altura: valor numérico de cada barra
+      label = scales::comma(Valor),                  # Texto formateado con separadores de miles (ej: 1,500,000)
+      group = Categoria                              # ✅ ¡CLAVE DINÁMICA! Agrupa por categoría (PET/PEA) 
+    ),
+    
+    # 3. POSICIONAMIENTO (ALINEACIÓN CON BARRAS)
+    position = position_dodge(width = 0.8),          # Separa etiquetas horizontalmente entre PET y PEA
+    
+    # 4. FORMATO DEL TEXTO
+    angle = 90,          # Rota 90° (texto vertical)
+    hjust = 1.2,         # Ajusta según necesites (1.2 es para que quede dentro de la barra con ángulo 90°)
+    vjust = 0.5,         # Centra verticalmente el texto DENTRO de la barra
+    color = "white",     # Color blanco para contraste con barras
+    size = 3,            # Tamaño de fuente
+    fontface = "bold"    # Texto en negrita
+  ) +
+  
   
   
   # 3. GRAFICO LÍNEA: Tasa de Actividad (Multiplicada por el factor para que sea visible)
