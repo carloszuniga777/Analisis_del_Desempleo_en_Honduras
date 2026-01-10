@@ -343,7 +343,7 @@ empleo_tasa_actividad_anual <- empleo_edad_resumen %>%
   mutate(tasa_actividad = (PEA / PET) * 100)
 
 
-# 2. Configuración del eje secundario
+# Configuración del eje secundario
 # Necesitamos un factor de escala para que el 100% llegue al tope del eje Y (aprox 8M)
 # Escala: 8,000,000 / 100 = 80,000
 escala_factor <- 80000
@@ -351,22 +351,22 @@ escala_factor <- 80000
 
 
 
-# 4. Construcción del Gráfico
+# Construcción del Gráfico
 ggplot() +
   
-  # 1. BARRAS: PET y PEA
+  # 1. GRAFICO BARRAS: PET y PEA
   geom_col(data = empleo_honduras_pet_vs_pea, aes(x = factor(Año), y = Valor, fill = Categoria), 
            position = position_dodge(width = 0.8), width = 0.7) +
   
   
   # 2. ETIQUETAS DE BARRAS: (Números internos)
   geom_text(data = empleo_honduras_pet_vs_pea, 
-            aes(x = factor(Año), y = Valor, fill = Categoria, label = scales::comma(Valor)),
+            aes(x = factor(Año), y = Valor, label = scales::comma(Valor)),
             position = position_dodge(width = 0.8),
             angle = 90, hjust = 1.2, color = "white", size = 3, fontface = "bold") +
   
   
-  # 3. LÍNEA: Tasa de Actividad (Multiplicada por el factor para que sea visible)
+  # 3. GRAFICO LÍNEA: Tasa de Actividad (Multiplicada por el factor para que sea visible)
   geom_line(data = empleo_tasa_actividad_anual, aes(x = factor(Año), y = tasa_actividad * escala_factor, group = 1),
             color = "#F39C12", size = 1.2) +
   
