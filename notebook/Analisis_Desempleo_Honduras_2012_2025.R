@@ -318,9 +318,9 @@ empleo_genero<- empleo_genero %>%
 
 # 4.1.  PET vs PET  
 
-
-# Primero se agrupan los datos por año y sumar las poblaciones y 
-# luego se pivotean los datos (Convertir de formato ancho a largo)
+# Datos para el grafico de barras:
+#    Primero se agrupan los datos por año y sumar las poblaciones y 
+#    luego se pivotean los datos (Convertir de formato ancho a largo)
 
 empleo_honduras_pet_vs_pea <-  empleo_edad_resumen %>% 
   group_by(Año) %>% 
@@ -333,74 +333,112 @@ empleo_honduras_pet_vs_pea <-  empleo_edad_resumen %>%
 
 
 
+# Datos para el grafico de linea:
+empleo_tasa_actividad_anual <- empleo_edad_resumen %>%
+  group_by(Año) %>%
+  summarise(
+    PET = sum(PET, na.rm = TRUE),
+    PEA = sum(PEA, na.rm = TRUE)
+  ) %>%
+  mutate(tasa_actividad = (PEA / PET) * 100)
 
-# Grafica Barras comparativa entre PEA y PET
 
-ggplot(empleo_honduras_pet_vs_pea, aes(x = factor(Año), y = Valor, fill = Categoria)) +
+# 2. Configuración del eje secundario
+# Necesitamos un factor de escala para que el 100% llegue al tope del eje Y (aprox 8M)
+# Escala: 8,000,000 / 100 = 80,000
+escala_factor <- 80000
+
+
+
+
+# 4. Construcción del Gráfico
+ggplot() +
   
-  # 1. Dibujar las barras
-  geom_col(position = position_dodge(width = 0.9)) +    # position_dodge(width = 0.9) separa las barras de PET y PEA una al lado de la otra.
-  
-  # 2. ETIQUETAS: Agrega las etiquetas de datos (números) dentro de las barras.
-  geom_text(aes(label = scales::comma(Valor)), 
-            position = position_dodge(width = 0.9),     # Alinea el texto con el centro de cada barra                       
-            vjust = 0.5,                                # Centrado vertical respecto al punto de anclaje
-            hjust = 1.2,                                # Empuja el texto hacia el interior (abajo) de la barra
-            size = 3.5,                                 # Tamaño de la fuente de la etiqueta  
-            color = "white",                            # Color blanco para contraste sobre gris/azul
-            angle = 90,                                 # Rotación de 90 grados para lectura vertical
-            fontface = "bold") +                        # Resalta el número en negrita
-  
-  
-  # 3. Define colores personalizados y nombres exactos para la leyenda.
-  scale_fill_manual(values = c("PET" = "#A9A9A9",                # Gris para PET
-                               "PEA" = "#5DADE2"),               # Azul para PEA
-                    labels = c("PET" = "Población en Edad de Trabajar (PET)", 
-                               "PEA" = "Población Económicamente Activa (PEA)")) +
+  # 1. BARRAS: PET y PEA
+  geom_col(data = empleo_honduras_pet_vs_pea, aes(x = factor(Año), y = Valor, fill = Categoria), 
+           position = position_dodge(width = 0.8), width = 0.7) +
   
   
-  # 4. Escalas y etiquetas
-  # Formatea el eje Y con comas y da un 10% de espacio extra arriba
-  # para evitar que las barras o etiquetas toquen el borde del área de trazado.
-  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.1))) +
+  # 2. ETIQUETAS DE BARRAS: (Números internos)
+  geom_text(data = empleo_honduras_pet_vs_pea, 
+            aes(x = factor(Año), y = Valor, fill = Categoria, label = scales::comma(Valor)),
+            position = position_dodge(width = 0.8),
+            angle = 90, hjust = 1.2, color = "white", size = 3, fontface = "bold") +
   
   
-  
-  # 5. TEXTOS Y TÍTULOS
-  # Define el título (usando \n para salto de línea), etiquetas de ejes y quita el título de la leyenda.
-  
-  labs(title = "Gráfico comparativo entre la población apta para trabajar\ny de quienes son económicamente activos en Honduras",
-       subtitle = "Honduras: Periodo 2012 - 2025",
-       caption = "Fuente: Instituto Nacional de Estadística (INE)",
-       x = "Año",
-       y = "Población",
-       fill = "") +
+  # 3. LÍNEA: Tasa de Actividad (Multiplicada por el factor para que sea visible)
+  geom_line(data = empleo_tasa_actividad_anual, aes(x = factor(Año), y = tasa_actividad * escala_factor, group = 1),
+            color = "#F39C12", size = 1.2) +
   
   
+  # 4. PUNTOS Y ETIQUETAS DE LA TASA
   
-  # 6. Tema profesional de BI
+  # Puntos
+  geom_point(data = empleo_tasa_actividad_anual, 
+             aes(x = factor(Año), y = tasa_actividad * escala_factor), 
+             color = "#F39C12", size = 3) +
+  
+  # Etiquetas
+  geom_text(data = empleo_tasa_actividad_anual %>% filter(Año %in% c(2012, 2016, 2017, 2021, 2025)),
+            aes(x = factor(Año), y = (tasa_actividad * escala_factor) + 200000,
+                                      label = paste0(round(tasa_actividad, 1), "%")),
+              #color = "#D35400",
+              fontface = "bold", 
+              size = 3,
+              vjust = 2.5,           # Valor positivo empuja el texto hacia ABAJO del punto
+     ) +
+  
+  
+  # 5. ESCALAS
+  scale_fill_manual(values = c("PET" = "#A9A9A9", "PEA" = "#5DADE2"),
+                    labels = c("PET" = "Población en Edad de Trabajar", "PEA" = "Población Activa")) +
+  
+  # Doble eje: El primario en formato normal, el secundario transformado de vuelta a %
+  scale_y_continuous(
+    name = "Población",
+    labels = scales::comma,
+    sec.axis = sec_axis(~ . / escala_factor, name = "Tasa de Actividad (%)", 
+                        labels = function(b) paste0(b, "%"))
+  ) +
+  
+  # TEXTOS
+    labs(title = "Población apta para trabajar (PET) vs quienes son económicamente activos (PEA) \n en Honduras",
+         subtitle = "Comparativo PET vs PEA y porcentaje de participación (2012-2025)",
+         caption = "Fuente: Instituto Nacional de Estadística (INE)",
+         x = "Año",
+         fill = "Categoría Poblacional",
+         ) +
+  
+  
+  # TEMA PROFESIONAL
   theme_minimal() +                                  # Aplica un estilo limpio con fondo blanco y rejillas sutiles
   theme(
     
     # -----------FORMATO A LOS TITULOS ---------------------
-    # Centra el título (hjust = 0.5), lo pone en negrita y añade margen inferior (b = 20) 
+    # Centra el título (hjust = 0.5), lo pone en negrita y añade margen inferior (b = 20)
     # para que no choque visualmente con las barras del gráfico.
     
     plot.title = element_text(face = "bold", size = 16, hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 14, hjust = 0.5, margin = margin(b = 15)),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, margin = margin(b = 15)),
     plot.caption = element_text(size = 9, color = "#555555", face = "italic", hjust = 1),
     
     
     # --- ETIQUETAS DE LOS EJES (X e Y) ---
+    
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),
+    
     axis.title.x = element_text(face = "bold", size = 14, color = "darkgrey"),
+    
     axis.title.y = element_text(face = "bold", size = 14, color = "darkgrey"),
+    axis.title.y.right = element_text(color = "#D35400", face = "bold", size = 12),
     
     # --- CONFIGURACIÓN DE LA LEYENDA ---
     legend.position = "bottom",                      # Posiciona la leyenda en la parte inferior para maximizar el área de visualización.
-    
+    legend.box = "horizontal",
     
     # -------- Limpieza visual ------------
-    panel.grid.major.x = element_blank()             # Elimina las líneas verticales de la cuadrícula para un look más moderno y enfocado en las barras.
+    panel.grid.major.x = element_blank(),             # Elimina las líneas verticales de la cuadrícula para un look más moderno y enfocado en las barras.
+    panel.grid.minor = element_blank()  
   )
 
 
@@ -459,7 +497,7 @@ ggplot(empleo_honduras, aes(x=Año, y=Valor, colour = Categoria)) +
   
   # 2. ETIQUETAS DE DATOS:  Etiquetas de datos inteligentes (Solo para el último año y picos para no saturar)
   
-  # --- Etiquetas para Población Ocupada (AZUL) -> SIEMPRE ABAJO ---
+  # --- Etiquetas para Tasa de Actividad (ARRIBA)
   geom_text_repel(
     data = empleo_honduras %>% filter(Año %in% c(2012, 2020, 2025), Categoria == "tasa_actividad"),
     aes(label = paste0(round(Valor, 1), "%")),
@@ -468,7 +506,7 @@ ggplot(empleo_honduras, aes(x=Año, y=Valor, colour = Categoria)) +
     fontface = "bold", size = 3.5, segment.color = NA, show.legend = FALSE
   ) +
 
-  # --- Etiquetas para Población Ocupada (AZUL) -> SIEMPRE ABAJO ---
+  # --- Etiquetas para Población Ocupada (ABAJO)
   geom_text_repel(
     data = empleo_honduras %>% filter(Año %in% c(2012, 2020, 2025), Categoria == "tasa_ocupacion"),
     aes(label = paste0(round(Valor, 1), "%")),
@@ -477,7 +515,7 @@ ggplot(empleo_honduras, aes(x=Año, y=Valor, colour = Categoria)) +
     fontface = "bold", size = 3.5, segment.color = NA, show.legend = FALSE
   ) +
 
-  # --- Etiquetas para Tasa de Desempleo (ROJO) -> ARRIBA (para alejarse del eje 0) ---
+  # --- Etiquetas para Tasa de Desempleo (ARRIBA)
   geom_text_repel(
     data = empleo_honduras %>% filter(Año %in% c(2012, 2020, 2025), Categoria == "tasa_desempleo"),
     aes(label = paste0(round(Valor, 1), "%")),
